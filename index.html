@@ -1,19 +1,109 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="styles.css">
-    <title>INI Config Editor</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>Config Editor</title>
 </head>
 <body>
-    <div class="container">
-        <h1>Edit Your INI File</h1>
-        <input type="file" id="iniFile" accept=".ini">
-        <input type="text" id="steamLink" placeholder="Enter Steam Profile Link">
-        <button id="submit">Edit INI</button>
-        <a id="downloadLink" style="display:none;">Download Edited INI</a>
+  <div class="shell">
+    <div class="header">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <h1>Config Editor</h1>
+      </div>
+      <p class="subtitle">
+        Edit an <code>.ini</code> file locally in your browser. Only <code>steam_id</code> and
+        <code>player_name</code> are changed; everything else stays the same.
+      </p>
     </div>
-    <script src="app.js"></script>
+
+    <div class="grid">
+      <div class="card">
+        <div class="card__body">
+          <div class="section-title">Inputs</div>
+
+          <div class="field">
+            <label for="iniFile">INI file</label>
+            <input type="file" id="iniFile" accept=".ini" />
+          </div>
+
+          <div class="field">
+            <label>Mode</label>
+            <div class="mode" role="radiogroup" aria-label="Steam input mode">
+              <label>
+                <input id="modeSteamLink" type="radio" name="mode" value="steamLink" checked />
+                Steam link + display name
+              </label>
+              <label>
+                <input id="modeSteamId" type="radio" name="mode" value="steamId" />
+                SteamID64 + display name
+              </label>
+            </div>
+          </div>
+
+          <div class="field" id="steamLinkGroup">
+            <label for="steamLink">Steam profile link</label>
+            <input
+              type="text"
+              id="steamLink"
+              placeholder="https://steamcommunity.com/profiles/7656119.../"
+              autocomplete="off"
+            />
+            <small style="color: rgba(255,255,255,0.55)">Static mode supports <code>/profiles/&lt;steamid64&gt;</code>. Vanity <code>/id/</code> links are not resolvable without a backend.</small>
+          </div>
+
+          <div class="field" id="steamIdGroup" hidden>
+            <label for="steamId">SteamID64</label>
+            <input
+              type="text"
+              id="steamId"
+              placeholder="7656119xxxxxxxxxx (17 digits)"
+              autocomplete="off"
+            />
+          </div>
+
+          <div class="field">
+            <label for="displayName">Display name (player_name)</label>
+            <input type="text" id="displayName" placeholder="REXAGAMES" autocomplete="off" />
+          </div>
+
+          <div class="actions">
+            <button id="submit">Generate edited INI</button>
+          </div>
+
+          <div id="status" class="status status--info">Ready.</div>
+
+          <footer>
+            Tip: If you want to keep the edited file preview private, just download it and close the tab.
+          </footer>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__body">
+          <div class="section-title">Output</div>
+
+          <div id="downloadWrap" class="download" hidden>
+            <div>
+              <div style="font-weight: 800;">Your file is ready</div>
+              <div style="color: rgba(255,255,255,0.65); font-size: 12px;">Download or copy the edited contents.</div>
+            </div>
+            <a id="downloadLink" href="#">Download .ini</a>
+          </div>
+
+          <div class="preview">
+            <textarea id="outPreview" readonly placeholder="Edited ini preview will appear here…"></textarea>
+            <div class="mini">
+              <button id="copyBtn" class="secondary" type="button">Copy output</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
 </body>
 </html>

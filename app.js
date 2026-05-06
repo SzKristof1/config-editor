@@ -1,44 +1,60 @@
-const iniFileInput = document.getElementById("iniFile");
-const steamLinkInput = document.getElementById("steamLink");
-const submitBtn = document.getElementById("submit");
-const downloadLink = document.getElementById("downloadLink");
+const $ = (id) => document.getElementById(id);
 
-/**
- * Supports:
- *  - https://steamcommunity.com/profiles/<steamid64>/
- *  - https://steamcommunity.com/id/<vanity>/  (cannot resolve without a server/API key)
- *
- * For a pure static site, we can ONLY reliably extract steamid64 from /profiles/<id>.
- * Vanity URLs require Steam Web API (ResolveVanityURL) which needs an API key and CORS may block browser calls.
- */
+const iniFileInput = $("iniFile");
+const modeSteamLink = $("modeSteamLink");
+const modeSteamId = $("modeSteamId");
+
+const steamLinkGroup = $("steamLinkGroup");
+const steamIdGroup = $("steamIdGroup");
+
+const steamLinkInput = $("steamLink");
+const steamIdInput = $("steamId");
+const displayNameInput = $("displayName");
+
+const statusEl = $("status");
+const submitBtn = $("submit");
+
+const downloadWrap = $("downloadWrap");
+const downloadLink = $("downloadLink");
+const outPreview = $("outPreview");
+const copyBtn = $("copyBtn");
+
+function setStatus(message, type = "info") {
+  statusEl.textContent = message;
+  statusEl.className = `status status--${type}`;
+}
+
+function detectNewline(text) {
+  return text.includes("\r\n") ? "\r\n" : "\n";
+}
+
 function extractSteamId64(steamUrl) {
-  const url = steamUrl.trim();
-
+  const url = (steamUrl || "").trim();
   const profilesMatch = url.match(/steamcommunity\.com\/profiles\/(\d{17})/i);
   if (profilesMatch) return profilesMatch[1];
 
   const vanityMatch = url.match(/steamcommunity\.com\/id\/([^\/?#]+)/i);
   if (vanityMatch) {
-    // Static-only limitation
     throw new Error(
-      "Vanity Steam links (/id/...) can’t be resolved in this static version without a backend or API proxy. Please use a /profiles/<steamid64>/ link."
+      "Vanity Steam links (/id/...) can’t be resolved in this static version. Please use a /profiles/<steamid64>/ link or switch to SteamID mode."
     );
   }
 
-  throw new Error("Invalid Steam profile link. Use steamcommunity.com/profiles/<steamid64>/");
-}
+  // Allow users to paste a raw steamid64 into the steam link field
+  const idMatch = url.match(/^\d{17}$/);
+  if (idMatch) return url;
 
-function detectNewline(text) {
-  if (text.includes("\r\n")) return "\r\n";
-  return "\n";
+  throw new Error(
+    "Invalid Steam profile link. Use steamcommunity.com/profiles/<steamid64>/ or switch to SteamID mode."
+  );
 }
 
 function updateIniText(original, steamId, displayName) {
   const newline = detectNewline(original);
   const lines = original.split(/\r?\n/);
 
-  const steamRe = /^\s*steam_id\s*=\s*.*$/i;
-  const nameRe = /^\s*player_name\s*=\s*.*$/i;
+  const steamRe = /^\s*steam_id\s*=.*$/i;
+  const nameRe = /^\s*player_name\s*=.*$/i;
 
   let foundSteam = false;
   let foundName = false;
@@ -54,8 +70,7 @@ function updateIniText(original, steamId, displayName) {
   }
 
   if (!foundSteam || !foundName) {
-    // Try to insert under [game]
-    const gameHeaderIdx = lines.findIndex(l => /^\s*\[\s*game\s*\]\s*$/i.test(l));
+    const gameHeaderIdx = lines.findIndex((l) => /^\s*\[\s*game\s*\]\s*$/i.test(l));
     const insert = [];
     if (!foundSteam) insert.push(`steam_id=${steamId}`);
     if (!foundName) insert.push(`player_name=${displayName}`);
@@ -70,40 +85,101 @@ function updateIniText(original, steamId, displayName) {
   return lines.join(newline);
 }
 
+function currentMode() {
+  return modeSteamLink.checked ? "steamLink" : "steamId";
+}
+
+function updateModeUI() {
+  const mode = currentMode();
+  const link = mode === "steamLink";
+
+  steamLinkGroup.hidden = !link;
+  steamIdGroup.hidden = link;
+
+  steamLinkInput.required = link;
+  steamIdInput.required = !link;
+
+  setStatus(
+    link
+      ? "Mode: Steam Link + Display Name (SteamID64 extracted from /profiles/ link)."
+      : "Mode: SteamID64 + Display Name (manual entry).",
+    "info"
+  );
+}
+
+async function copyText(text) {
+  await navigator.clipboard.writeText(text);
+}
+
+modeSteamLink.addEventListener("change", updateModeUI);
+modeSteamId.addEventListener("change", updateModeUI);
+
+copyBtn.addEventListener("click", async () => {
+  const text = outPreview.value;
+  if (!text) return;
+  try {
+    await copyText(text);
+    setStatus("Copied edited INI to clipboard.", "success");
+  } catch {
+    setStatus("Could not copy to clipboard (browser blocked it).", "warn");
+  }
+});
+
 submitBtn.addEventListener("click", async () => {
-  downloadLink.style.display = "none";
-  downloadLink.removeAttribute("href");
+  downloadWrap.hidden = true;
+  outPreview.value = "";
 
   const file = iniFileInput.files?.[0];
   if (!file) {
-    alert("Please select an .ini file first.");
+    setStatus("Select an .ini file first.", "error");
+    return;
+  }
+  if (!file.name.toLowerCase().endsWith(".ini")) {
+    setStatus("Please select a .ini file.", "error");
     return;
   }
 
-  if (!file.name.toLowerCase().endsWith(".ini")) {
-    alert("Please select a .ini file.");
+  const displayName = (displayNameInput.value || "").trim();
+  if (!displayName) {
+    setStatus("Display name is required.", "error");
     return;
   }
+
+  let steamId;
+  try {
+    if (currentMode() === "steamLink") {
+      steamId = extractSteamId64(steamLinkInput.value);
+    } else {
+      steamId = (steamIdInput.value || "").trim();
+      if (!/^\d{17}$/.test(steamId)) {
+        throw new Error("SteamID64 must be exactly 17 digits.");
+      }
+    }
+  } catch (e) {
+    setStatus(e?.message || String(e), "error");
+    return;
+  }
+
+  setStatus("Reading file…", "info");
 
   try {
-    const steamId = extractSteamId64(steamLinkInput.value);
-    const displayName = prompt("Enter display name (player_name):", "");
-    if (!displayName) {
-      alert("Display name is required.");
-      return;
-    }
-
     const text = await file.text();
     const updated = updateIniText(text, steamId, displayName);
+
+    outPreview.value = updated;
 
     const blob = new Blob([updated], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
 
     downloadLink.href = url;
     downloadLink.download = file.name;
-    downloadLink.textContent = "Download Edited INI";
-    downloadLink.style.display = "inline-block";
+
+    downloadWrap.hidden = false;
+    setStatus(`Done. steam_id set to ${steamId}.`, "success");
   } catch (e) {
-    alert(e?.message || String(e));
+    setStatus(e?.message || String(e), "error");
   }
 });
+
+// init
+updateModeUI();
