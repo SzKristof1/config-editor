@@ -1,8 +1,8 @@
 const $ = (id) => document.getElementById(id);
 
 const iniFileInput = $("iniFile");
-const modeSteamLink = $("modeSteamLink");
-const modeSteamId = $("modeSteamId");
+const modeToggle = $("modeToggle");
+const modeHint = $("modeHint");
 
 const steamLinkGroup = $("steamLinkGroup");
 const steamIdGroup = $("steamIdGroup");
@@ -14,10 +14,18 @@ const displayNameInput = $("displayName");
 const statusEl = $("status");
 const submitBtn = $("submit");
 
+const outputCard = $("outputCard");
+const showOutputCard = $("showOutputCard");
+const hideOutputBtn = $("hideOutputBtn");
+const showOutputBtn2 = $("showOutputBtn2");
+
 const downloadWrap = $("downloadWrap");
 const downloadLink = $("downloadLink");
 const outPreview = $("outPreview");
 const copyBtn = $("copyBtn");
+
+let lastOutputBlobUrl = null;
+let hasOutput = false;
 
 function setStatus(message, type = "info") {
   statusEl.textContent = message;
@@ -30,6 +38,7 @@ function detectNewline(text) {
 
 function extractSteamId64(steamUrl) {
   const url = (steamUrl || "").trim();
+
   const profilesMatch = url.match(/steamcommunity\.com\/profiles\/(\d{17})/i);
   if (profilesMatch) return profilesMatch[1];
 
@@ -41,8 +50,7 @@ function extractSteamId64(steamUrl) {
   }
 
   // Allow users to paste a raw steamid64 into the steam link field
-  const idMatch = url.match(/^\d{17}$/);
-  if (idMatch) return url;
+  if (/^\d{17}$/.test(url)) return url;
 
   throw new Error(
     "Invalid Steam profile link. Use steamcommunity.com/profiles/<steamid64>/ or switch to SteamID mode."
@@ -86,7 +94,18 @@ function updateIniText(original, steamId, displayName) {
 }
 
 function currentMode() {
-  return modeSteamLink.checked ? "steamLink" : "steamId";
+  return modeToggle.checked ? "steamId" : "steamLink";
+}
+
+function setOutputVisible(visible) {
+  if (!hasOutput) {
+    outputCard.hidden = true;
+    showOutputCard.hidden = true;
+    return;
+  }
+
+  outputCard.hidden = !visible;
+  showOutputCard.hidden = visible;
 }
 
 function updateModeUI() {
@@ -99,10 +118,14 @@ function updateModeUI() {
   steamLinkInput.required = link;
   steamIdInput.required = !link;
 
+  modeHint.textContent = link
+    ? "Paste a Steam profile link. Best supported: steamcommunity.com/profiles/<steamid64>/"
+    : "Enter your 17-digit SteamID64 manually.";
+
   setStatus(
     link
-      ? "Mode: Steam Link + Display Name (SteamID64 extracted from /profiles/ link)."
-      : "Mode: SteamID64 + Display Name (manual entry).",
+      ? "Mode: Steam Link + Display Name"
+      : "Mode: SteamID64 + Display Name",
     "info"
   );
 }
@@ -111,8 +134,10 @@ async function copyText(text) {
   await navigator.clipboard.writeText(text);
 }
 
-modeSteamLink.addEventListener("change", updateModeUI);
-modeSteamId.addEventListener("change", updateModeUI);
+hideOutputBtn.addEventListener("click", () => setOutputVisible(false));
+showOutputBtn2.addEventListener("click", () => setOutputVisible(true));
+
+modeToggle.addEventListener("change", updateModeUI);
 
 copyBtn.addEventListener("click", async () => {
   const text = outPreview.value;
@@ -126,8 +151,12 @@ copyBtn.addEventListener("click", async () => {
 });
 
 submitBtn.addEventListener("click", async () => {
+  // Hide output until we successfully generate new output
+  // (keeps UX clean when errors happen)
   downloadWrap.hidden = true;
   outPreview.value = "";
+  hasOutput = false;
+  setOutputVisible(false);
 
   const file = iniFileInput.files?.[0];
   if (!file) {
@@ -168,13 +197,23 @@ submitBtn.addEventListener("click", async () => {
 
     outPreview.value = updated;
 
-    const blob = new Blob([updated], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
+    // Revoke previous Blob URL if any
+    if (lastOutputBlobUrl) {
+      URL.revokeObjectURL(lastOutputBlobUrl);
+      lastOutputBlobUrl = null;
+    }
 
-    downloadLink.href = url;
+    const blob = new Blob([updated], { type: "text/plain" });
+    lastOutputBlobUrl = URL.createObjectURL(blob);
+
+    downloadLink.href = lastOutputBlobUrl;
     downloadLink.download = file.name;
 
     downloadWrap.hidden = false;
+
+    hasOutput = true;
+    setOutputVisible(true);
+
     setStatus(`Done. steam_id set to ${steamId}.`, "success");
   } catch (e) {
     setStatus(e?.message || String(e), "error");
@@ -183,3 +222,4 @@ submitBtn.addEventListener("click", async () => {
 
 // init
 updateModeUI();
+setOutputVisible(false);

@@ -31,16 +31,15 @@
 
           <div class="field">
             <label>Mode</label>
-            <div class="mode" role="radiogroup" aria-label="Steam input mode">
-              <label>
-                <input id="modeSteamLink" type="radio" name="mode" value="steamLink" checked />
-                Steam link + display name
+            <div class="modeRow">
+              <div class="modeLabel">Steam link</div>
+              <label class="switch" aria-label="Toggle input mode">
+                <input id="modeToggle" type="checkbox" />
+                <span class="slider"></span>
               </label>
-              <label>
-                <input id="modeSteamId" type="radio" name="mode" value="steamId" />
-                SteamID64 + display name
-              </label>
+              <div class="modeLabel">SteamID64</div>
             </div>
+            <div class="modeHint" id="modeHint"></div>
           </div>
 
           <div class="field" id="steamLinkGroup">
@@ -51,7 +50,7 @@
               placeholder="https://steamcommunity.com/profiles/7656119.../"
               autocomplete="off"
             />
-            <small style="color: rgba(255,255,255,0.55)">Static mode supports <code>/profiles/&lt;steamid64&gt;</code>. Vanity <code>/id/</code> links are not resolvable without a backend.</small>
+            <small class="help">Static mode supports <code>/profiles/&lt;steamid64&gt;</code>. Vanity <code>/id/</code> links are not resolvable without a backend.</small>
           </div>
 
           <div class="field" id="steamIdGroup" hidden>
@@ -81,9 +80,15 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" id="outputCard" hidden>
         <div class="card__body">
-          <div class="section-title">Output</div>
+          <div class="outputHeader">
+            <div>
+              <div class="section-title" style="margin-bottom: 4px;">Output</div>
+              <div class="outputSub">Preview, copy, or download your edited INI.</div>
+            </div>
+            <button id="hideOutputBtn" class="secondary" type="button">Hide</button>
+          </div>
 
           <div id="downloadWrap" class="download" hidden>
             <div>
@@ -97,10 +102,24 @@
             <textarea id="outPreview" readonly placeholder="Edited ini preview will appear here…"></textarea>
             <div class="mini">
               <button id="copyBtn" class="secondary" type="button">Copy output</button>
+              <button id="showOutputBtn" class="secondary" type="button" hidden>Show output</button>
             </div>
           </div>
         </div>
       </div>
+
+      <div class="card" id="showOutputCard" hidden>
+        <div class="card__body">
+          <div class="showRow">
+            <div>
+              <div class="section-title" style="margin-bottom: 4px;">Output hidden</div>
+              <div class="outputSub">Click to show the last edited result.</div>
+            </div>
+            <button id="showOutputBtn2" class="secondary" type="button">Show</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
