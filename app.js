@@ -6,7 +6,6 @@ const fileName = $("fileName");
 
 const modeSteamLinkBtn = $("modeSteamLink");
 const modeSteamIdBtn = $("modeSteamId");
-const modeHint = $("modeHint");
 
 const steamLinkGroup = $("steamLinkGroup");
 const steamIdGroup = $("steamIdGroup");
@@ -112,8 +111,12 @@ function setMode(newMode) {
   mode = newMode;
 
   const link = mode === "steamLink";
+
+  // Make sure we're setting the PROPERTY and the attribute (for older cached HTML)
   steamLinkGroup.hidden = !link;
   steamIdGroup.hidden = link;
+  steamLinkGroup.toggleAttribute("hidden", !link);
+  steamIdGroup.toggleAttribute("hidden", link);
 
   modeSteamLinkBtn.classList.toggle("is-active", link);
   modeSteamIdBtn.classList.toggle("is-active", !link);
@@ -121,11 +124,9 @@ function setMode(newMode) {
   modeSteamLinkBtn.setAttribute("aria-selected", String(link));
   modeSteamIdBtn.setAttribute("aria-selected", String(!link));
 
-  modeHint.textContent = link
-    ? "Paste a Steam profile link. Best supported: steamcommunity.com/profiles/<steamid64>/"
-    : "Enter your 17-digit SteamID64 manually.";
-
-  setStatus(link ? "Mode: Steam link" : "Mode: SteamID64", "info");
+  // Only require the visible input
+  steamLinkInput.required = link;
+  steamIdInput.required = !link;
 }
 
 function setSelectedFile(file) {
@@ -140,7 +141,6 @@ function setSelectedFile(file) {
     return;
   }
 
-  // Put file into the hidden input so existing code can read it
   const dt = new DataTransfer();
   dt.items.add(file);
   iniFileInput.files = dt.files;
@@ -149,7 +149,6 @@ function setSelectedFile(file) {
   setStatus("INI file selected.", "success");
 }
 
-// Dropzone click -> open file dialog
 function openFileDialog() {
   iniFileInput.click();
 }
@@ -162,13 +161,11 @@ dropzone.addEventListener("keydown", (e) => {
   }
 });
 
-// File chosen via dialog
 iniFileInput.addEventListener("change", () => {
   const file = iniFileInput.files?.[0];
   setSelectedFile(file || null);
 });
 
-// Drag & drop behavior
 dropzone.addEventListener("dragover", (e) => {
   e.preventDefault();
   dropzone.classList.add("is-dragover");
@@ -181,7 +178,6 @@ dropzone.addEventListener("dragleave", () => {
 dropzone.addEventListener("drop", (e) => {
   e.preventDefault();
   dropzone.classList.remove("is-dragover");
-
   const file = e.dataTransfer?.files?.[0];
   setSelectedFile(file || null);
 });
@@ -205,7 +201,6 @@ copyBtn.addEventListener("click", async () => {
 });
 
 submitBtn.addEventListener("click", async () => {
-  // Hide output until we successfully generate new output
   downloadWrap.hidden = true;
   outPreview.value = "";
   hasOutput = false;
@@ -214,10 +209,6 @@ submitBtn.addEventListener("click", async () => {
   const file = iniFileInput.files?.[0];
   if (!file) {
     setStatus("Select an .ini file first.", "error");
-    return;
-  }
-  if (!file.name.toLowerCase().endsWith(".ini")) {
-    setStatus("Please select a .ini file.", "error");
     return;
   }
 
@@ -233,9 +224,7 @@ submitBtn.addEventListener("click", async () => {
       steamId = extractSteamId64(steamLinkInput.value);
     } else {
       steamId = (steamIdInput.value || "").trim();
-      if (!/^\d{17}$/.test(steamId)) {
-        throw new Error("SteamID64 must be exactly 17 digits.");
-      }
+      if (!/^\d{17}$/.test(steamId)) throw new Error("SteamID64 must be exactly 17 digits.");
     }
   } catch (e) {
     setStatus(e?.message || String(e), "error");
@@ -250,12 +239,7 @@ submitBtn.addEventListener("click", async () => {
 
     outPreview.value = updated;
 
-    // Revoke previous Blob URL if any
-    if (lastOutputBlobUrl) {
-      URL.revokeObjectURL(lastOutputBlobUrl);
-      lastOutputBlobUrl = null;
-    }
-
+    if (lastOutputBlobUrl) URL.revokeObjectURL(lastOutputBlobUrl);
     const blob = new Blob([updated], { type: "text/plain" });
     lastOutputBlobUrl = URL.createObjectURL(blob);
 
