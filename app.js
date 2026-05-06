@@ -1,7 +1,11 @@
 const $ = (id) => document.getElementById(id);
 
 const iniFileInput = $("iniFile");
-const modeToggle = $("modeToggle");
+const dropzone = $("dropzone");
+const fileName = $("fileName");
+
+const modeSteamLinkBtn = $("modeSteamLink");
+const modeSteamIdBtn = $("modeSteamId");
 const modeHint = $("modeHint");
 
 const steamLinkGroup = $("steamLinkGroup");
@@ -26,6 +30,7 @@ const copyBtn = $("copyBtn");
 
 let lastOutputBlobUrl = null;
 let hasOutput = false;
+let mode = "steamLink";
 
 function setStatus(message, type = "info") {
   statusEl.textContent = message;
@@ -45,15 +50,14 @@ function extractSteamId64(steamUrl) {
   const vanityMatch = url.match(/steamcommunity\.com\/id\/([^\/?#]+)/i);
   if (vanityMatch) {
     throw new Error(
-      "Vanity Steam links (/id/...) can’t be resolved in this static version. Please use a /profiles/<steamid64>/ link or switch to SteamID mode."
+      "Vanity Steam links (/id/...) can’t be resolved in this static version. Please use a /profiles/<steamid64>/ link or switch to SteamID64 mode."
     );
   }
 
-  // Allow users to paste a raw steamid64 into the steam link field
   if (/^\d{17}$/.test(url)) return url;
 
   throw new Error(
-    "Invalid Steam profile link. Use steamcommunity.com/profiles/<steamid64>/ or switch to SteamID mode."
+    "Invalid Steam profile link. Use steamcommunity.com/profiles/<steamid64>/ or switch to SteamID64 mode."
   );
 }
 
@@ -93,10 +97,6 @@ function updateIniText(original, steamId, displayName) {
   return lines.join(newline);
 }
 
-function currentMode() {
-  return modeToggle.checked ? "steamId" : "steamLink";
-}
-
 function setOutputVisible(visible) {
   if (!hasOutput) {
     outputCard.hidden = true;
@@ -108,42 +108,96 @@ function setOutputVisible(visible) {
   showOutputCard.hidden = visible;
 }
 
-function updateModeUI() {
-  const mode = currentMode();
-  const link = mode === "steamLink";
+function setMode(newMode) {
+  mode = newMode;
 
+  const link = mode === "steamLink";
   steamLinkGroup.hidden = !link;
   steamIdGroup.hidden = link;
 
-  steamLinkInput.required = link;
-  steamIdInput.required = !link;
+  modeSteamLinkBtn.classList.toggle("is-active", link);
+  modeSteamIdBtn.classList.toggle("is-active", !link);
+
+  modeSteamLinkBtn.setAttribute("aria-selected", String(link));
+  modeSteamIdBtn.setAttribute("aria-selected", String(!link));
 
   modeHint.textContent = link
     ? "Paste a Steam profile link. Best supported: steamcommunity.com/profiles/<steamid64>/"
     : "Enter your 17-digit SteamID64 manually.";
 
-  setStatus(
-    link
-      ? "Mode: Steam Link + Display Name"
-      : "Mode: SteamID64 + Display Name",
-    "info"
-  );
+  setStatus(link ? "Mode: Steam link" : "Mode: SteamID64", "info");
 }
 
-async function copyText(text) {
-  await navigator.clipboard.writeText(text);
+function setSelectedFile(file) {
+  if (!file) {
+    iniFileInput.value = "";
+    fileName.textContent = "No file selected";
+    return;
+  }
+
+  if (!file.name.toLowerCase().endsWith(".ini")) {
+    setStatus("Please select a .ini file.", "error");
+    return;
+  }
+
+  // Put file into the hidden input so existing code can read it
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  iniFileInput.files = dt.files;
+
+  fileName.textContent = file.name;
+  setStatus("INI file selected.", "success");
 }
+
+// Dropzone click -> open file dialog
+function openFileDialog() {
+  iniFileInput.click();
+}
+
+dropzone.addEventListener("click", openFileDialog);
+dropzone.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    openFileDialog();
+  }
+});
+
+// File chosen via dialog
+iniFileInput.addEventListener("change", () => {
+  const file = iniFileInput.files?.[0];
+  setSelectedFile(file || null);
+});
+
+// Drag & drop behavior
+dropzone.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  dropzone.classList.add("is-dragover");
+});
+
+dropzone.addEventListener("dragleave", () => {
+  dropzone.classList.remove("is-dragover");
+});
+
+dropzone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dropzone.classList.remove("is-dragover");
+
+  const file = e.dataTransfer?.files?.[0];
+  setSelectedFile(file || null);
+});
+
+modeSteamLinkBtn.addEventListener("click", () => setMode("steamLink"));
+modeSteamIdBtn.addEventListener("click", () => setMode("steamId"));
 
 hideOutputBtn.addEventListener("click", () => setOutputVisible(false));
 showOutputBtn2.addEventListener("click", () => setOutputVisible(true));
 
-modeToggle.addEventListener("change", updateModeUI);
-
 copyBtn.addEventListener("click", async () => {
   const text = outPreview.value;
   if (!text) return;
+
   try {
-    await copyText(text);
+    await navigator.clipboard.writeText(text);
     setStatus("Copied edited INI to clipboard.", "success");
   } catch {
     setStatus("Could not copy to clipboard (browser blocked it).", "warn");
@@ -152,7 +206,6 @@ copyBtn.addEventListener("click", async () => {
 
 submitBtn.addEventListener("click", async () => {
   // Hide output until we successfully generate new output
-  // (keeps UX clean when errors happen)
   downloadWrap.hidden = true;
   outPreview.value = "";
   hasOutput = false;
@@ -176,7 +229,7 @@ submitBtn.addEventListener("click", async () => {
 
   let steamId;
   try {
-    if (currentMode() === "steamLink") {
+    if (mode === "steamLink") {
       steamId = extractSteamId64(steamLinkInput.value);
     } else {
       steamId = (steamIdInput.value || "").trim();
@@ -221,5 +274,6 @@ submitBtn.addEventListener("click", async () => {
 });
 
 // init
-updateModeUI();
+setMode("steamLink");
 setOutputVisible(false);
+setSelectedFile(null);

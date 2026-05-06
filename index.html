@@ -24,20 +24,32 @@
         <div class="card__body">
           <div class="section-title">Inputs</div>
 
+          <!-- Hidden file input (triggered by dropzone) -->
+          <input type="file" id="iniFile" accept=".ini" hidden />
+
           <div class="field">
-            <label for="iniFile">INI file</label>
-            <input type="file" id="iniFile" accept=".ini" />
+            <label>INI file</label>
+            <div id="dropzone" class="dropzone" role="button" tabindex="0" aria-label="Upload INI file">
+              <div class="dropzone__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 16V8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <path d="M8.5 11.5L12 8l3.5 3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M20 16.5v1A3.5 3.5 0 0 1 16.5 21h-9A3.5 3.5 0 0 1 4 17.5v-1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div class="dropzone__text">
+                <div class="dropzone__title">Click to choose a <code>.ini</code> file</div>
+                <div class="dropzone__sub">or drag & drop it here</div>
+                <div id="fileName" class="dropzone__file">No file selected</div>
+              </div>
+            </div>
           </div>
 
           <div class="field">
             <label>Mode</label>
-            <div class="modeRow">
-              <div class="modeLabel">Steam link</div>
-              <label class="switch" aria-label="Toggle input mode">
-                <input id="modeToggle" type="checkbox" />
-                <span class="slider"></span>
-              </label>
-              <div class="modeLabel">SteamID64</div>
+            <div class="segmented" role="tablist" aria-label="Steam input mode">
+              <button id="modeSteamLink" class="segmented__btn is-active" type="button" role="tab" aria-selected="true">Steam link</button>
+              <button id="modeSteamId" class="segmented__btn" type="button" role="tab" aria-selected="false">SteamID64</button>
             </div>
             <div class="modeHint" id="modeHint"></div>
           </div>
@@ -102,7 +114,6 @@
             <textarea id="outPreview" readonly placeholder="Edited ini preview will appear here…"></textarea>
             <div class="mini">
               <button id="copyBtn" class="secondary" type="button">Copy output</button>
-              <button id="showOutputBtn" class="secondary" type="button" hidden>Show output</button>
             </div>
           </div>
         </div>
